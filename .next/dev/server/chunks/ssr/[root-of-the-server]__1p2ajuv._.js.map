@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/juani/OneDrive/Documentos/NODE%203/src/components/erp-prototype.tsx"],"sourcesContent":["// This file is deprecated. The application has been restructured.\n// See app-shell.tsx and individual view components.\nexport {};\n"],"names":[],"mappings":"AAAA,kEAAkE;AAClE,oDAAoD"}},
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/juani/OneDrive/Documentos/NODE%203/src/app/page.tsx"],"sourcesContent":["import { ErpPrototype } from \"@/components/erp-prototype\";\n\nexport default function Home() {\n  return <ErpPrototype />;\n}\n"],"names":["Home"],"mappings":";;;;;AAAA;;;AAEe,SAASA;IACtB,qBAAO,8OAAC,sJAAY;;;;;AACtB"}}]
+}
