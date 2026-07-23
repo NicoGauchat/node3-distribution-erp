@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, ArrowRight, Check, Send, Copy, Package } from "lucide-react";
 import type { DemoState, NewOrderDraft, OrderStatus, Product } from "@/lib/types";
 import {
@@ -11,7 +12,7 @@ import {
   createWhatsAppUrl,
   orderStatusLabels,
 } from "@/lib/business";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, normalizeText } from "@/lib/format";
 import { StatusBadge, WhatsAppBtn, CopyBtn, EmptyState, orderStatusLabel } from "./ui";
 
 export function OrdersView({
@@ -35,6 +36,9 @@ export function OrdersView({
   onUpdateStatus: (id: string, s: OrderStatus) => void;
   onCopyMessage: (msg: string) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
   const customer = draft.customerId ? findCustomer(state.customers, draft.customerId) : undefined;
   const priceList = customer?.priceList ?? "mayorista";
 
@@ -169,13 +173,48 @@ export function OrdersView({
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="split">
+          <input
+            className="input"
+            placeholder="Buscar por cliente o #pedido..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <select
+            className="select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">Todos</option>
+            <option value="confirmado">Confirmado</option>
+            <option value="preparacion">En preparación</option>
+            <option value="preparado">Preparado</option>
+            <option value="entregado_sin_cobrar">Entregado sin cobrar</option>
+            <option value="pagado">Pagado</option>
+          </select>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">Tablero de pedidos</h2>
         </div>
         <div className="kanban">
-          {["confirmado", "preparacion", "preparado", "entregado_sin_cobrar"].map((status) => {
-            const cols = state.orders.filter((o) => o.status === status);
+          {["confirmado", "preparacion", "preparado", "entregado_sin_cobrar", "pagado"].map((status) => {
+            const cols = state.orders.filter((o) => {
+              if (o.status !== status) return false;
+              if (statusFilter && o.status !== statusFilter) return false;
+              if (searchQuery) {
+                const query = normalizeText(searchQuery);
+                const c = findCustomer(state.customers, o.customerId);
+                const customerMatch = c && normalizeText(c.businessName).includes(query);
+                const numberMatch = o.number.includes(searchQuery);
+                if (!customerMatch && !numberMatch) return false;
+              }
+              return true;
+            });
+            if (cols.length === 0 && status === "pagado") return null;
             return (
               <div key={status} className="kanban-col">
                 <div className="kanban-col-title">

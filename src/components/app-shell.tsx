@@ -159,6 +159,34 @@ export function ErpApp() {
   const submitDraftOrder = () => {
     if (!draft.customerId || draft.lines.length === 0) return;
 
+    // Validate customer status
+    const customer = findCustomer(state.customers, draft.customerId);
+    if (customer?.status === "moroso") {
+      showToast("⚠️ Cliente moroso — no se puede crear el pedido.");
+      return;
+    }
+
+    // Validate credit limit
+    if (customer) {
+      const currentDebt = state.orders
+        .filter((o) => o.customerId === customer.id)
+        .reduce((sum, o) => sum + getOrderBalance(o), 0);
+      const orderTotal = draft.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+      if (customer.creditLimit > 0 && currentDebt + orderTotal > customer.creditLimit) {
+        showToast(`⚠️ Supera límite de crédito (${formatCurrency(customer.creditLimit)}).`);
+        return;
+      }
+    }
+
+    // Validate stock availability
+    for (const line of draft.lines) {
+      const product = findProduct(state.products, line.productId);
+      if (product && line.quantity > product.stock) {
+        showToast(`⚠️ Stock insuficiente de ${product.name} (hay ${product.stock}).`);
+        return;
+      }
+    }
+
     const newOrder = buildOrderFromDraft(draft, state.orders, state.customers);
 
     setState((prev) => {
@@ -170,10 +198,16 @@ export function ErpApp() {
             : i
         );
       }
+      // Deduct stock
+      const products = prev.products.map((p) => {
+        const line = draft.lines.find((l) => l.productId === p.id);
+        return line ? { ...p, stock: Math.max(0, p.stock - line.quantity) } : p;
+      });
       return {
         ...prev,
         orders: [...prev.orders, newOrder],
         inquiries,
+        products,
       };
     });
 
@@ -260,10 +294,11 @@ export function ErpApp() {
   };
 
   const createInquiry = (text: string) => {
-    const hintRegex = /(agua|gaseosa|detergente|guantes|creatina|proteina|shaker|tornillos)/gi;
-    const matches = text.match(hintRegex) || [];
-    const hints = [
-      ...new Set(matches.map((m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase())),
+    const productNames = state.products.map((p) => p.name.toLowerCase());
+    const words = text.toLowerCase().split(/[\s,;.]+/).filter((w) => w.length > 3);
+    const hints = words.filter((w) => productNames.some((name) => name.includes(w)));
+    const uniqueHints = [
+      ...new Set(hints.map((m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase())),
     ];
 
     const newInquiry: Inquiry = {
@@ -271,7 +306,7 @@ export function ErpApp() {
       prospectName: "Nuevo Prospecto",
       channel: "WhatsApp",
       text,
-      productHints: hints,
+      productHints: uniqueHints,
       status: "nueva",
       owner: "Node3",
       nextAction: "Responder consulta",
@@ -317,6 +352,50 @@ export function ErpApp() {
       products: [...newProducts, ...prev.products],
     }));
     showToast("2 productos importados desde Excel");
+  };
+
+  /* ── Customer CRUD ── */
+
+  const addCustomer = (data: Omit<Customer, "id">) => {
+    const id = `c-${Date.now()}`;
+    setState((prev) => ({ ...prev, customers: [...prev.customers, { ...data, id }] }));
+    setSelectedCustomerId(id);
+    showToast("Cliente agregado.");
+  };
+
+  const updateCustomer = (id: string, changes: Partial<Customer>) => {
+    setState((prev) => ({
+      ...prev,
+      customers: prev.customers.map((c) => (c.id === id ? { ...c, ...changes } : c)),
+    }));
+    showToast("Cliente actualizado.");
+  };
+
+  const deleteCustomer = (id: string) => {
+    setState((prev) => ({ ...prev, customers: prev.customers.filter((c) => c.id !== id) }));
+    if (selectedCustomerId === id) setSelectedCustomerId("");
+    showToast("Cliente eliminado.");
+  };
+
+  /* ── Product CRUD ── */
+
+  const addProduct = (data: Omit<Product, "id">) => {
+    const id = `p-${Date.now()}`;
+    setState((prev) => ({ ...prev, products: [...prev.products, { ...data, id }] }));
+    showToast("Producto agregado.");
+  };
+
+  const updateProduct = (id: string, changes: Partial<Product>) => {
+    setState((prev) => ({
+      ...prev,
+      products: prev.products.map((p) => (p.id === id ? { ...p, ...changes } : p)),
+    }));
+    showToast("Producto actualizado.");
+  };
+
+  const deleteProduct = (id: string) => {
+    setState((prev) => ({ ...prev, products: prev.products.filter((p) => p.id !== id) }));
+    showToast("Producto eliminado.");
   };
 
   const startOrderForCustomer = (customerId: string) => {
@@ -426,10 +505,19 @@ export function ErpApp() {
               onSelect={setSelectedCustomerId}
               onStartOrder={startOrderForCustomer}
               onCopyMessage={copyMessage}
+              onAddCustomer={addCustomer}
+              onUpdateCustomer={updateCustomer}
+              onDeleteCustomer={deleteCustomer}
             />
           )}
           {view === "productos" && (
-            <ProductsView products={state.products} onImport={simulateExcelImport} />
+            <ProductsView
+              products={state.products}
+              onImport={simulateExcelImport}
+              onAddProduct={addProduct}
+              onUpdateProduct={updateProduct}
+              onDeleteProduct={deleteProduct}
+            />
           )}
           {view === "cobrar" && (
             <CollectionsView

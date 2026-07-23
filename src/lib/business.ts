@@ -114,10 +114,11 @@ export function buildSuggestedLines(
 }
 
 export function getDashboardMetrics(state: DemoState) {
-  const todaysOrders = state.orders.filter((order) => order.createdAt === "2026-07-22");
+  const today = new Date().toISOString().slice(0, 10);
+  const todaysOrders = state.orders.filter((order) => order.createdAt === today);
   const receivable = state.orders.reduce((sum, order) => sum + getOrderBalance(order), 0);
   const overdue = state.orders
-    .filter((order) => order.dueDate < "2026-07-22")
+    .filter((order) => order.dueDate < today)
     .reduce((sum, order) => sum + getOrderBalance(order), 0);
 
   return {
@@ -170,7 +171,8 @@ export function createWhatsAppUrl(phone: string, message: string): string {
 
 export function getDaysOverdue(dueDate: string): number {
   const due = new Date(`${dueDate}T12:00:00`);
-  const today = new Date("2026-07-22T12:00:00"); // demo fixed date
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
   const diff = today.getTime() - due.getTime();
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }

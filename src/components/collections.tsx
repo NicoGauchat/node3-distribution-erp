@@ -10,7 +10,7 @@ import {
   getDaysOverdue,
   generateCollectionMessage,
 } from "@/lib/business";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, normalizeText } from "@/lib/format";
 import { WhatsAppBtn, CopyBtn, MetricCard } from "./ui";
 
 export function CollectionsView({
@@ -23,11 +23,21 @@ export function CollectionsView({
   onCopyMessage: (msg: string) => void;
 }) {
   const [partialAmounts, setPartialAmounts] = useState<Record<string, string>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const pending = state.orders.filter((o) => getOrderBalance(o) > 0);
   
   const totalPendiente = pending.reduce((sum, o) => sum + getOrderBalance(o), 0);
   const clientesConDeuda = new Set(pending.map(o => o.customerId)).size;
+
+  const filteredPending = pending.filter(o => {
+    if (!searchQuery) return true;
+    const q = normalizeText(searchQuery);
+    const customer = findCustomer(state.customers, o.customerId);
+    const matchesCustomer = customer ? normalizeText(customer.businessName).includes(q) : false;
+    const matchesOrder = o.number.toLowerCase().includes(q.toLowerCase());
+    return matchesCustomer || matchesOrder;
+  });
 
   return (
     <div className="content">
@@ -40,6 +50,15 @@ export function CollectionsView({
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">Cuentas por Cobrar</h2>
+        </div>
+        <div style={{ padding: '0 16px 16px' }}>
+          <input
+            className="input"
+            placeholder="Buscar por cliente o #pedido..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', maxWidth: 400 }}
+          />
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -56,7 +75,7 @@ export function CollectionsView({
               </tr>
             </thead>
             <tbody>
-              {pending.map((order) => {
+              {filteredPending.map((order) => {
                 const customer = findCustomer(state.customers, order.customerId);
                 const overdueDays = getDaysOverdue(order.dueDate);
                 
