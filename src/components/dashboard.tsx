@@ -17,7 +17,7 @@ import {
   findCustomer,
   getOrderTotal,
 } from "@/lib/business";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { MetricCard, StatusBadge, orderStatusLabel } from "@/components/ui";
 
 export function DashboardView({
@@ -35,7 +35,7 @@ export function DashboardView({
 
   const activeOrders = state.orders
     .filter((o) =>
-      ["confirmado", "preparacion", "preparado", "entregado_sin_cobrar"].includes(
+      ["confirmado", "preparacion", "preparado", "reparto", "entregado_sin_cobrar"].includes(
         o.status
       )
     )
@@ -52,7 +52,7 @@ export function DashboardView({
           icon={CreditCard}
           label="Ventas hoy"
           value={formatCurrency(metrics.todaySales)}
-          note="Pedidos del 22/07"
+          note={`Pedidos creados el ${formatDate(new Date().toISOString().slice(0, 10))}`}
           color="green"
         />
         <MetricCard
@@ -157,6 +157,14 @@ export function DashboardView({
                               onClick={() => onUpdateStatus(order.id, "reparto")}
                             >
                               Repartir
+                            </button>
+                          )}
+                          {order.status === "reparto" && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => onUpdateStatus(order.id, "entregado_sin_cobrar")}
+                            >
+                              Entregado
                             </button>
                           )}
                         </td>

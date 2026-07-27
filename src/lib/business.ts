@@ -44,13 +44,53 @@ export function getOrderBalance(order: Order): number {
     return 0;
   }
 
-  return Math.max(0, getOrderTotal(order) - order.paidAmount);
+  return Math.max(0, getOrderTotal(order) - getOrderPaidAmount(order));
+}
+
+export function getOrderPaidAmount(order: Order): number {
+  const recordedPayments = order.payments?.reduce((sum, payment) => sum + payment.amount, 0) ?? 0;
+  return Math.max(order.paidAmount, recordedPayments);
+}
+
+export function getOrderMargin(order: Order, products: Product[]): number {
+  return order.lines.reduce((sum, line) => {
+    const product = findProduct(products, line.productId);
+    return sum + (line.unitPrice - (product?.costPrice ?? 0)) * line.quantity;
+  }, -order.discount);
 }
 
 export function getCustomerDebt(customerId: string, orders: Order[]): number {
   return orders
-    .filter((order) => order.customerId === customerId)
+    .filter((order) => order.customerId === customerId && isReceivableOrder(order))
     .reduce((sum, order) => sum + getOrderBalance(order), 0);
+}
+
+export function isReceivableOrder(order: Order): boolean {
+  return ["entregado", "entregado_sin_cobrar"].includes(order.status);
+}
+
+export function getCustomerCreditUsed(customer: Customer, orders: Order[]): number {
+  const pendingOrders = orders
+    .filter((order) => order.customerId === customer.id && order.status !== "cancelado")
+    .reduce((sum, order) => sum + getOrderBalance(order), 0);
+  return customer.currentDebt + pendingOrders;
+}
+
+export function isStockCommitted(status: OrderStatus): boolean {
+  return status !== "borrador" && status !== "cancelado";
+}
+
+export function isValidOrderTransition(from: OrderStatus, to: OrderStatus): boolean {
+  const transitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+    borrador: ["confirmado", "cancelado"],
+    confirmado: ["preparacion", "cancelado"],
+    preparacion: ["preparado", "cancelado"],
+    preparado: ["reparto", "cancelado"],
+    reparto: ["entregado_sin_cobrar", "pagado"],
+    entregado: ["entregado_sin_cobrar", "pagado"],
+    entregado_sin_cobrar: ["pagado"],
+  };
+  return transitions[from]?.includes(to) ?? false;
 }
 
 export function findCustomer(customers: Customer[], id: string): Customer | undefined {
@@ -116,9 +156,13 @@ export function buildSuggestedLines(
 export function getDashboardMetrics(state: DemoState) {
   const today = new Date().toISOString().slice(0, 10);
   const todaysOrders = state.orders.filter((order) => order.createdAt === today);
-  const receivable = state.orders.reduce((sum, order) => sum + getOrderBalance(order), 0);
+  const receivable =
+    state.customers.reduce((sum, customer) => sum + customer.currentDebt, 0) +
+    state.orders
+      .filter(isReceivableOrder)
+      .reduce((sum, order) => sum + getOrderBalance(order), 0);
   const overdue = state.orders
-    .filter((order) => order.dueDate < today)
+    .filter((order) => isReceivableOrder(order) && order.dueDate < today)
     .reduce((sum, order) => sum + getOrderBalance(order), 0);
 
   return {

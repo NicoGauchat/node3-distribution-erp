@@ -22,6 +22,7 @@ import type {
   Product,
   Customer,
   Inquiry,
+  PaymentMethod,
 } from "@/lib/types";
 
 import {
@@ -31,6 +32,10 @@ import {
   findProduct,
   getOrderTotal,
   getOrderBalance,
+  getOrderPaidAmount,
+  getCustomerCreditUsed,
+  isStockCommitted,
+  isValidOrderTransition,
   getDashboardMetrics,
   generateOrderMessage,
   generateCollectionMessage,
@@ -168,9 +173,7 @@ export function ErpApp() {
 
     // Validate credit limit
     if (customer) {
-      const currentDebt = state.orders
-        .filter((o) => o.customerId === customer.id)
-        .reduce((sum, o) => sum + getOrderBalance(o), 0);
+      const currentDebt = getCustomerCreditUsed(customer, state.orders);
       const orderTotal = draft.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
       if (customer.creditLimit > 0 && currentDebt + orderTotal > customer.creditLimit) {
         showToast(`⚠️ Supera límite de crédito (${formatCurrency(customer.creditLimit)}).`);
@@ -257,31 +260,98 @@ export function ErpApp() {
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setState((prev) => ({
-      ...prev,
-      orders: prev.orders.map((o) => (o.id === orderId ? { ...o, status } : o)),
-    }));
+    const order = state.orders.find((item) => item.id === orderId);
+    if (!order || order.status === status) return;
+
+    if (!isValidOrderTransition(order.status, status)) {
+      showToast("Ese cambio de estado no corresponde al flujo del pedido.");
+      return;
+    }
+
+    setState((prev) => {
+      const current = prev.orders.find((item) => item.id === orderId);
+      if (!current) return prev;
+
+      const payment =
+        status === "pagado" && getOrderBalance(current) > 0
+          ? {
+              id: `pay-${Date.now()}`,
+              amount: getOrderBalance(current),
+              method: "Efectivo" as PaymentMethod,
+              date: new Date().toISOString().slice(0, 10),
+              reference: "Pago confirmado desde el pedido",
+            }
+          : undefined;
+      const shouldRestoreStock = isStockCommitted(current.status) && !isStockCommitted(status);
+      const finalStatus =
+        status === "entregado_sin_cobrar" && getOrderBalance(current) === 0 ? "pagado" : status;
+
+      return {
+        ...prev,
+        products: shouldRestoreStock
+          ? prev.products.map((product) => {
+              const line = current.lines.find((item) => item.productId === product.id);
+              return line ? { ...product, stock: product.stock + line.quantity } : product;
+            })
+          : prev.products,
+        orders: prev.orders.map((item) =>
+          item.id === orderId
+            ? {
+                ...item,
+                status: finalStatus,
+                paidAmount: payment ? getOrderPaidAmount(item) + payment.amount : item.paidAmount,
+                payments: payment ? [...(item.payments ?? []), payment] : item.payments,
+              }
+            : item,
+        ),
+      };
+    });
+    showToast(status === "cancelado" ? "Pedido cancelado y stock restituido." : "Estado del pedido actualizado.");
   };
 
-  const registerPayment = (orderId: string, amount?: number) => {
+  const registerPayment = (
+    orderId: string,
+    amount: number | undefined,
+    method: PaymentMethod,
+    reference?: string,
+  ) => {
     setState((prev) => {
       const order = prev.orders.find((o) => o.id === orderId);
       if (!order) return prev;
 
-      const total = getOrderTotal(order);
-      const paid = amount !== undefined ? order.paidAmount + amount : total;
+      const balanceBeforePayment = getOrderBalance(order);
+      if (balanceBeforePayment === 0) return prev;
+      const collected = Math.min(amount ?? balanceBeforePayment, balanceBeforePayment);
+      if (collected <= 0) return prev;
+      const paid = getOrderPaidAmount(order) + collected;
 
-      const balance = Math.max(0, total - paid);
+      const balance = Math.max(0, getOrderTotal(order) - paid);
       let status = order.status;
 
-      if (balance === 0 && !["cancelado"].includes(status)) {
+      if (balance === 0 && ["entregado", "entregado_sin_cobrar"].includes(status)) {
         status = "pagado";
       }
 
       return {
         ...prev,
         orders: prev.orders.map((o) =>
-          o.id === orderId ? { ...o, paidAmount: paid, status } : o
+          o.id === orderId
+            ? {
+                ...o,
+                paidAmount: paid,
+                status,
+                payments: [
+                  ...(o.payments ?? []),
+                  {
+                    id: `pay-${Date.now()}`,
+                    amount: collected,
+                    method,
+                    date: new Date().toISOString().slice(0, 10),
+                    reference: reference?.trim() || undefined,
+                  },
+                ],
+              }
+            : o,
         ),
       };
     });
@@ -294,12 +364,17 @@ export function ErpApp() {
   };
 
   const createInquiry = (text: string) => {
-    const productNames = state.products.map((p) => p.name.toLowerCase());
-    const words = text.toLowerCase().split(/[\s,;.]+/).filter((w) => w.length > 3);
-    const hints = words.filter((w) => productNames.some((name) => name.includes(w)));
-    const uniqueHints = [
-      ...new Set(hints.map((m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase())),
-    ];
+    const words = normalizeText(text).split(/[^a-z0-9]+/).filter((word) => word.length > 3);
+    const uniqueHints = state.products
+      .filter((product) => {
+        const productWords = normalizeText(product.name).split(/[^a-z0-9]+/);
+        return words.some((word) => {
+          const stem = word.replace(/(?:es|s)$/u, "");
+          return productWords.some((productWord) => productWord.startsWith(stem) || stem.startsWith(productWord));
+        });
+      })
+      .map((product) => product.name)
+      .slice(0, 4);
 
     const newInquiry: Inquiry = {
       id: `i-${Date.now()}`,
@@ -321,6 +396,15 @@ export function ErpApp() {
     showToast("Nueva consulta registrada");
   };
 
+  const updateInquiry = (id: string, changes: Partial<Inquiry>) => {
+    setState((prev) => ({
+      ...prev,
+      inquiries: prev.inquiries.map((inquiry) =>
+        inquiry.id === id ? { ...inquiry, ...changes } : inquiry,
+      ),
+    }));
+  };
+
   const simulateExcelImport = () => {
     const newProducts: Product[] = [
       {
@@ -329,6 +413,7 @@ export function ErpApp() {
         name: "Energizante lata pack x12",
         category: "Bebidas",
         unit: "pack",
+        costPrice: 11900,
         stock: 36,
         minStock: 15,
         prices: { minorista: 18000, mayorista: 15000, especial: 14400 },
@@ -340,6 +425,7 @@ export function ErpApp() {
         name: "Chocolate tableta caja x20",
         category: "Golosinas",
         unit: "caja",
+        costPrice: 16900,
         stock: 25,
         minStock: 10,
         prices: { minorista: 26000, mayorista: 21500, especial: 20000 },
@@ -372,6 +458,10 @@ export function ErpApp() {
   };
 
   const deleteCustomer = (id: string) => {
+    if (state.orders.some((order) => order.customerId === id)) {
+      showToast("No se puede eliminar: el cliente tiene pedidos asociados.");
+      return;
+    }
     setState((prev) => ({ ...prev, customers: prev.customers.filter((c) => c.id !== id) }));
     if (selectedCustomerId === id) setSelectedCustomerId("");
     showToast("Cliente eliminado.");
@@ -394,6 +484,10 @@ export function ErpApp() {
   };
 
   const deleteProduct = (id: string) => {
+    if (state.orders.some((order) => order.lines.some((line) => line.productId === id))) {
+      showToast("No se puede eliminar: el producto aparece en pedidos existentes.");
+      return;
+    }
     setState((prev) => ({ ...prev, products: prev.products.filter((p) => p.id !== id) }));
     showToast("Producto eliminado.");
   };
@@ -531,6 +625,7 @@ export function ErpApp() {
               state={state}
               onConvertInquiry={convertInquiry}
               onCreateInquiry={createInquiry}
+              onUpdateInquiry={updateInquiry}
               onCopyMessage={copyMessage}
             />
           )}

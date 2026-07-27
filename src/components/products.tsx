@@ -13,6 +13,7 @@ const initialFormState: ProductFormData = {
   name: "",
   category: "Otro",
   unit: "unidad",
+  costPrice: 0,
   stock: 0,
   minStock: 0,
   prices: { minorista: 0, mayorista: 0, especial: 0 },
@@ -51,6 +52,7 @@ export function ProductsView({
       name: product.name,
       category: product.category,
       unit: product.unit,
+      costPrice: product.costPrice,
       stock: product.stock,
       minStock: product.minStock,
       prices: { ...product.prices },
@@ -90,15 +92,15 @@ export function ProductsView({
     <div className="content">
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
-          <h2 className="card-title">Importación desde Excel</h2>
+          <h2 className="card-title">Actualización masiva de catálogo</h2>
         </div>
         <div className="split">
           <div className="msg-box" style={{ flex: 1, marginRight: 16 }}>
-            Puedes actualizar el catálogo de productos y listas de precios subiendo un archivo Excel.
+            Simulá una actualización desde Excel para mostrar cómo se incorporan productos y precios. El importador de archivos reales queda para la versión piloto.
           </div>
           <button className="btn btn-primary" onClick={onImport}>
             <FileSpreadsheet size={16} />
-            Importar Excel
+            Simular importación
           </button>
         </div>
       </div>
@@ -181,6 +183,16 @@ export function ProductsView({
             </div>
 
             <div className="form-row">
+              <div className="form-group">
+                <label>Costo de reposición</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input"
+                  value={formData.costPrice}
+                  onChange={(e) => setFormData({ ...formData, costPrice: Math.max(0, Number(e.target.value)) })}
+                />
+              </div>
               <div className="form-group">
                 <label>Precio minorista</label>
                 <input 
@@ -270,9 +282,10 @@ export function ProductsView({
                   <th>Producto</th>
                   <th>Categoría</th>
                   <th>Stock</th>
+                  <th>Costo</th>
                   <th>Minorista</th>
                   <th>Mayorista</th>
-                  <th>Especial</th>
+                  <th>Margen mayorista</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -292,9 +305,15 @@ export function ProductsView({
                         label={`${p.stock}`} 
                       />
                     </td>
+                    <td>{formatCurrency(p.costPrice)}</td>
                     <td>{formatCurrency(p.prices.minorista)}</td>
                     <td>{formatCurrency(p.prices.mayorista)}</td>
-                    <td>{formatCurrency(p.prices.especial)}</td>
+                    <td>
+                      <StatusBadge
+                        status={p.prices.mayorista > p.costPrice ? "activo" : "moroso"}
+                        label={`${p.costPrice > 0 ? Math.round(((p.prices.mayorista - p.costPrice) / p.prices.mayorista) * 100) : 0}%`}
+                      />
+                    </td>
                     <td>
                       <div className="actions">
                         {confirmDeleteId === p.id ? (

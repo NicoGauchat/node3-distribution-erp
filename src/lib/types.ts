@@ -24,6 +24,7 @@ export type Product = {
   name: string;
   category: string;
   unit: string;
+  costPrice: number;
   stock: number;
   minStock: number;
   prices: Record<PriceList, number>;
@@ -73,6 +74,16 @@ export type OrderLine = {
   unitPrice: number;
 };
 
+export type PaymentMethod = "Efectivo" | "Transferencia" | "Mercado Pago" | "Cheque";
+
+export type Payment = {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  date: string;
+  reference?: string;
+};
+
 export type Order = {
   id: string;
   number: string;
@@ -87,6 +98,7 @@ export type Order = {
   owner: string;
   notes: string;
   paidAmount: number;
+  payments?: Payment[];
 };
 
 export type DemoState = {

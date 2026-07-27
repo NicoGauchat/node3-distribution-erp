@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MessageCircle, Check } from "lucide-react";
-import type { DemoState, Inquiry } from "@/lib/types";
+import type { DemoState, Inquiry, InquiryStatus } from "@/lib/types";
 import { generateFollowUpMessage } from "@/lib/business";
 import { formatDate, normalizeText } from "@/lib/format";
 import { StatusBadge, CopyBtn, inquiryStatusLabel } from "./ui";
@@ -11,11 +11,13 @@ export function InquiriesView({
   state,
   onConvertInquiry,
   onCreateInquiry,
+  onUpdateInquiry,
   onCopyMessage,
 }: {
   state: DemoState;
   onConvertInquiry: (inquiry: Inquiry) => void;
   onCreateInquiry: (text: string) => void;
+  onUpdateInquiry: (id: string, changes: Partial<Inquiry>) => void;
   onCopyMessage: (msg: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -68,7 +70,19 @@ export function InquiriesView({
                     </td>
                     <td style={{ maxWidth: 200, whiteSpace: "normal" }}>{i.text}</td>
                     <td>
-                      <StatusBadge status={i.status} label={inquiryStatusLabel(i.status)} />
+                      <select
+                        className="select inquiry-status"
+                        value={i.status}
+                        onChange={(e) => onUpdateInquiry(i.id, { status: e.target.value as InquiryStatus })}
+                        aria-label={`Estado de la consulta de ${i.prospectName}`}
+                      >
+                        <option value="nueva">Nueva</option>
+                        <option value="respondida">Respondida</option>
+                        <option value="cotizada">Cotizada</option>
+                        <option value="seguimiento">En seguimiento</option>
+                        <option value="perdida">Perdida</option>
+                        <option value="convertida">Convertida</option>
+                      </select>
                     </td>
                     <td style={{ maxWidth: 150, whiteSpace: "normal", fontSize: 12 }}>{i.nextAction}</td>
                     <td>
@@ -82,6 +96,7 @@ export function InquiriesView({
                           className="btn btn-primary btn-sm"
                           onClick={() => onConvertInquiry(i)}
                           title="Convertir en pedido"
+                          disabled={i.status === "convertida" || i.status === "perdida"}
                         >
                           <Check size={14} /> Convertir
                         </button>

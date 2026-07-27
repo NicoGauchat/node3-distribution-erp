@@ -791,6 +791,18 @@ a {
   max-width: 120px;
 }
 
+.inquiry-status {
+  min-width: 132px;
+  padding: 6px 8px;
+}
+
+.collection-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 170px minmax(180px, 0.7fr);
+  gap: 8px;
+  max-width: 760px;
+}
+
 /* ═══ Toast ═══ */
 
 @keyframes slideUp {
@@ -919,6 +931,10 @@ a {
 
   .cart-line {
     grid-template-columns: 1fr 60px;
+  }
+
+  .collection-filters {
+    grid-template-columns: 1fr;
   }
 
   .split {

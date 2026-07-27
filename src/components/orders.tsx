@@ -201,7 +201,7 @@ export function OrdersView({
           <h2 className="card-title">Tablero de pedidos</h2>
         </div>
         <div className="kanban">
-          {["confirmado", "preparacion", "preparado", "entregado_sin_cobrar", "pagado"].map((status) => {
+          {["confirmado", "preparacion", "preparado", "reparto", "entregado_sin_cobrar", "pagado"].map((status) => {
             const cols = state.orders.filter((o) => {
               if (o.status !== status) return false;
               if (statusFilter && o.status !== statusFilter) return false;
@@ -246,13 +246,18 @@ export function OrdersView({
                           </button>
                         )}
                         {status === "preparado" && (
-                          <button className="btn btn-primary btn-sm" onClick={() => onUpdateStatus(order.id, "entregado_sin_cobrar")}>
+                          <button className="btn btn-primary btn-sm" onClick={() => onUpdateStatus(order.id, "reparto")}>
                             Avanzar <ArrowRight size={12} />
+                          </button>
+                        )}
+                        {status === "reparto" && (
+                          <button className="btn btn-primary btn-sm" onClick={() => onUpdateStatus(order.id, "entregado_sin_cobrar")}>
+                            Entregado <Check size={12} />
                           </button>
                         )}
                         {status === "entregado_sin_cobrar" && (
                           <button className="btn btn-primary btn-sm" onClick={() => onUpdateStatus(order.id, "pagado")}>
-                            Cobrar <Check size={12} />
+                            Cobrar efectivo <Check size={12} />
                           </button>
                         )}
                       </div>

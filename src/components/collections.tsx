@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Check, WalletCards } from "lucide-react";
-import type { DemoState } from "@/lib/types";
+import type { DemoState, PaymentMethod } from "@/lib/types";
 import {
   findCustomer,
   getOrderTotal,
   getOrderBalance,
   getDaysOverdue,
   generateCollectionMessage,
+  isReceivableOrder,
 } from "@/lib/business";
 import { formatCurrency, formatDate, normalizeText } from "@/lib/format";
 import { WhatsAppBtn, CopyBtn, MetricCard } from "./ui";
@@ -19,13 +20,20 @@ export function CollectionsView({
   onCopyMessage,
 }: {
   state: DemoState;
-  onRegisterPayment: (orderId: string, amount?: number) => void;
+  onRegisterPayment: (
+    orderId: string,
+    amount: number | undefined,
+    method: PaymentMethod,
+    reference?: string,
+  ) => void;
   onCopyMessage: (msg: string) => void;
 }) {
   const [partialAmounts, setPartialAmounts] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Transferencia");
+  const [reference, setReference] = useState("");
 
-  const pending = state.orders.filter((o) => getOrderBalance(o) > 0);
+  const pending = state.orders.filter((o) => isReceivableOrder(o) && getOrderBalance(o) > 0);
   
   const totalPendiente = pending.reduce((sum, o) => sum + getOrderBalance(o), 0);
   const clientesConDeuda = new Set(pending.map(o => o.customerId)).size;
@@ -52,13 +60,26 @@ export function CollectionsView({
           <h2 className="card-title">Cuentas por Cobrar</h2>
         </div>
         <div style={{ padding: '0 16px 16px' }}>
-          <input
-            className="input"
-            placeholder="Buscar por cliente o #pedido..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', maxWidth: 400 }}
-          />
+          <div className="collection-filters">
+            <input
+              className="input"
+              placeholder="Buscar por cliente o #pedido..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <select className="select" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
+              <option>Efectivo</option>
+              <option>Transferencia</option>
+              <option>Mercado Pago</option>
+              <option>Cheque</option>
+            </select>
+            <input
+              className="input"
+              placeholder="Referencia (opcional)"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+          </div>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -71,7 +92,7 @@ export function CollectionsView({
                 <th>Vence</th>
                 <th>Días</th>
                 <th>Mensaje</th>
-                <th>Pago</th>
+                <th>Cobro</th>
               </tr>
             </thead>
             <tbody>
@@ -119,8 +140,9 @@ export function CollectionsView({
                           onClick={() => {
                             const val = parseFloat(partialAmounts[order.id]);
                             if (val > 0) {
-                              onRegisterPayment(order.id, val);
+                              onRegisterPayment(order.id, val, paymentMethod, reference);
                               setPartialAmounts({ ...partialAmounts, [order.id]: "" });
+                              setReference("");
                             }
                           }}
                         >
@@ -128,7 +150,10 @@ export function CollectionsView({
                         </button>
                         <button
                           className="btn btn-primary btn-sm"
-                          onClick={() => onRegisterPayment(order.id)}
+                          onClick={() => {
+                            onRegisterPayment(order.id, undefined, paymentMethod, reference);
+                            setReference("");
+                          }}
                         >
                           Total
                         </button>
