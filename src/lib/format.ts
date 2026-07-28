@@ -13,6 +13,11 @@ export function formatDate(value: string): string {
   }).format(new Date(`${value}T12:00:00`));
 }
 
+export function getLocalDateKey(date = new Date()): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
 export function normalizeText(value: string): string {
   return value
     .normalize("NFD")

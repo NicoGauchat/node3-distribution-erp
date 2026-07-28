@@ -76,9 +76,9 @@ export function MetricCard({
 }) {
   return (
     <div className={`metric-card ${color ?? ""}`}>
-      <div className="metric-icon">
-        <Icon size={15} />
-        {label}
+      <div className="metric-head">
+        <span className="metric-icon"><Icon size={17} /></span>
+        <span className="metric-label">{label}</span>
       </div>
       <div className="metric-value">{value}</div>
       {note && <div className="metric-note">{note}</div>}

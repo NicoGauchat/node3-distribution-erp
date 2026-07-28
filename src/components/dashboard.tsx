@@ -17,7 +17,7 @@ import {
   findCustomer,
   getOrderTotal,
 } from "@/lib/business";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/format";
 import { MetricCard, StatusBadge, orderStatusLabel } from "@/components/ui";
 
 export function DashboardView({
@@ -47,12 +47,23 @@ export function DashboardView({
 
   return (
     <>
+      <div className="dashboard-intro">
+        <div>
+          <span className="eyebrow">Resumen operativo</span>
+          <h1>Así está el negocio hoy</h1>
+          <p>Pedidos, cobranzas y alertas importantes en un solo lugar.</p>
+        </div>
+        <div className="health-pill">
+          <span className="health-dot" /> Operación activa
+        </div>
+      </div>
+
       <div className="metrics-row">
         <MetricCard
           icon={CreditCard}
           label="Ventas hoy"
           value={formatCurrency(metrics.todaySales)}
-          note={`Pedidos creados el ${formatDate(new Date().toISOString().slice(0, 10))}`}
+          note={`Pedidos creados el ${formatDate(getLocalDateKey())}`}
           color="green"
         />
         <MetricCard
@@ -80,20 +91,24 @@ export function DashboardView({
 
       <div className="quick-actions">
         <button className="quick-action" onClick={() => onNavigate("pedidos")}>
-          <Plus size={20} />
-          Nuevo pedido
+          <span className="quick-action-icon blue"><Plus size={20} /></span>
+          <span className="quick-action-copy"><strong>Nuevo pedido</strong><small>Cargar una venta</small></span>
+          <ArrowRight size={16} className="quick-action-arrow" />
         </button>
         <button className="quick-action" onClick={() => onNavigate("consultas")}>
-          <MessageCircle size={20} />
-          Nueva consulta
+          <span className="quick-action-icon violet"><MessageCircle size={20} /></span>
+          <span className="quick-action-copy"><strong>Nueva consulta</strong><small>Registrar un mensaje</small></span>
+          <ArrowRight size={16} className="quick-action-arrow" />
         </button>
         <button className="quick-action" onClick={() => onNavigate("cobrar")}>
-          <WalletCards size={20} />
-          Ver deudas
+          <span className="quick-action-icon amber"><WalletCards size={20} /></span>
+          <span className="quick-action-copy"><strong>Ver cobranzas</strong><small>Seguir saldos pendientes</small></span>
+          <ArrowRight size={16} className="quick-action-arrow" />
         </button>
         <button className="quick-action" onClick={() => onNavigate("clientes")}>
-          <Package size={20} />
-          Clientes
+          <span className="quick-action-icon green"><Package size={20} /></span>
+          <span className="quick-action-copy"><strong>Buscar cliente</strong><small>Ver cuenta e historial</small></span>
+          <ArrowRight size={16} className="quick-action-arrow" />
         </button>
       </div>
 

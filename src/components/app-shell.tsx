@@ -11,6 +11,8 @@ import {
   Plus,
   RefreshCcw,
   Check,
+  Building2,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,7 +48,7 @@ import {
 } from "@/lib/business";
 
 import { initialDemoState } from "@/lib/demo-data";
-import { formatCurrency, normalizeText } from "@/lib/format";
+import { formatCurrency, getLocalDateKey, normalizeText } from "@/lib/format";
 
 import { DashboardView } from "@/components/dashboard";
 import { OrdersView } from "@/components/orders";
@@ -93,14 +95,22 @@ function loadState(): DemoState {
 
 export function ErpApp() {
   const [view, setView] = useState<ViewKey>("inicio");
-  const [state, setState] = useState<DemoState>(() => loadState());
+  const [state, setState] = useState<DemoState>(initialDemoState);
+  const [storageReady, setStorageReady] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("c-kiosco-amigos");
   const [draft, setDraft] = useState<NewOrderDraft>(emptyDraft);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    setState(loadState());
+    setStorageReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (storageReady) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  }, [state, storageReady]);
 
   useEffect(() => {
     if (toast) {
@@ -110,6 +120,17 @@ export function ErpApp() {
   }, [toast]);
 
   const metrics = useMemo(() => getDashboardMetrics(state), [state]);
+  const navBadges: Partial<Record<ViewKey, number>> = {
+    pedidos: metrics.pendingOrders,
+    cobrar: metrics.deliveredUnpaid,
+    consultas: metrics.openInquiries,
+  };
+
+  const todayLabel = new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
 
   const showToast = (msg: string) => setToast(msg);
 
@@ -278,7 +299,7 @@ export function ErpApp() {
               id: `pay-${Date.now()}`,
               amount: getOrderBalance(current),
               method: "Efectivo" as PaymentMethod,
-              date: new Date().toISOString().slice(0, 10),
+              date: getLocalDateKey(),
               reference: "Pago confirmado desde el pedido",
             }
           : undefined;
@@ -346,7 +367,7 @@ export function ErpApp() {
                     id: `pay-${Date.now()}`,
                     amount: collected,
                     method,
-                    date: new Date().toISOString().slice(0, 10),
+                    date: getLocalDateKey(),
                     reference: reference?.trim() || undefined,
                   },
                 ],
@@ -385,8 +406,8 @@ export function ErpApp() {
       status: "nueva",
       owner: "Node3",
       nextAction: "Responder consulta",
-      followUpDate: new Date().toISOString().slice(0, 10),
-      createdAt: new Date().toISOString().slice(0, 10),
+      followUpDate: getLocalDateKey(),
+      createdAt: getLocalDateKey(),
     };
 
     setState((prev) => ({
@@ -504,12 +525,14 @@ export function ErpApp() {
           <span className="brand-icon">N3</span>
           <div>
             <div className="brand-name">Node3</div>
-            <div className="brand-sub">Distribución</div>
+            <div className="brand-sub">Gestión mayorista</div>
           </div>
         </div>
+        <div className="sidebar-section-label">Tu negocio</div>
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const badge = navBadges[item.key];
             return (
               <button
                 key={item.key}
@@ -517,13 +540,24 @@ export function ErpApp() {
                 onClick={() => setView(item.key)}
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                <span className="nav-label">{item.label}</span>
+                {badge ? <span className="nav-count">{badge}</span> : null}
               </button>
             );
           })}
         </nav>
+        <div className="business-card">
+          <div className="business-avatar">
+            <Building2 size={17} />
+          </div>
+          <div className="business-copy">
+            <strong>Distribuidora Central</strong>
+            <span><i /> Datos de demostración</span>
+          </div>
+          <ChevronRight size={15} />
+        </div>
         <div className="sidebar-footer">
-          Prototipo comercial — pedidos, clientes, precios y cobranzas sin integrar WhatsApp API.
+          Node3 Distribución · Prototipo comercial
         </div>
       </aside>
 
@@ -532,6 +566,7 @@ export function ErpApp() {
           <nav className="sidebar-nav">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const badge = navBadges[item.key];
               return (
                 <button
                   key={item.key}
@@ -540,6 +575,7 @@ export function ErpApp() {
                 >
                   <Icon size={18} />
                   <span>{item.label}</span>
+                  {badge ? <span className="nav-count">{badge}</span> : null}
                 </button>
               );
             })}
@@ -547,11 +583,15 @@ export function ErpApp() {
         </div>
 
         <header className="header">
-          <div>
+          <div className="header-copy">
+            <div className="header-kicker">{todayLabel}</div>
             <div className="header-title">{pageTitles[view].title}</div>
             <div className="header-sub">{pageTitles[view].sub}</div>
           </div>
           <div className="header-actions">
+            <button className="btn btn-secondary" onClick={() => setView("consultas")}>
+              <MessageCircle size={16} /> Nueva consulta
+            </button>
             <button
               className="btn btn-primary"
               onClick={() => {
@@ -559,18 +599,15 @@ export function ErpApp() {
                 setView("pedidos");
               }}
             >
-              <Plus size={16} /> Pedido
+              <Plus size={16} /> Nuevo pedido
             </button>
-            <button className="btn btn-secondary" onClick={() => setView("consultas")}>
-              <MessageCircle size={16} /> Consulta
-            </button>
-            <button className="btn btn-ghost" onClick={resetDemo}>
-              <RefreshCcw size={16} /> Reiniciar
+            <button className="btn btn-ghost btn-icon" onClick={resetDemo} title="Reiniciar datos de demostración" aria-label="Reiniciar datos de demostración">
+              <RefreshCcw size={16} />
             </button>
           </div>
         </header>
 
-        <section className="content">
+        <section className="page-content">
           {view === "inicio" && (
             <DashboardView
               state={state}

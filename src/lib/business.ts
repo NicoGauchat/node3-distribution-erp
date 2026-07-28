@@ -9,6 +9,7 @@ import type {
   OrderStatus,
   Product,
 } from "./types";
+import { getLocalDateKey } from "./format";
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
   borrador: "Borrador",
@@ -124,8 +125,8 @@ export function buildOrderFromDraft(
     status: "confirmado",
     lines: draft.lines,
     discount: 0,
-    createdAt: now.toISOString().slice(0, 10),
-    dueDate: due.toISOString().slice(0, 10),
+    createdAt: getLocalDateKey(now),
+    dueDate: getLocalDateKey(due),
     deliveryZone: customer?.zone ?? "Sin zona",
     owner: "Node3",
     notes: draft.notes,
@@ -154,7 +155,7 @@ export function buildSuggestedLines(
 }
 
 export function getDashboardMetrics(state: DemoState) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey();
   const todaysOrders = state.orders.filter((order) => order.createdAt === today);
   const receivable =
     state.customers.reduce((sum, customer) => sum + customer.currentDebt, 0) +
