@@ -6,21 +6,32 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function formatDate(value: string): string {
+export function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat("es-AR", {
     day: "2-digit",
     month: "2-digit",
-  }).format(new Date(`${value}T12:00:00`));
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
-export function getLocalDateKey(date = new Date()): string {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
+export function formatTime(value: string): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 export function normalizeText(value: string): string {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function relativeDate(minutesAgo: number): string {
+  return new Date(Date.now() - minutesAgo * 60_000).toISOString();
 }

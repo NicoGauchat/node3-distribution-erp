@@ -1,6 +1,35 @@
-export type PriceList = "minorista" | "mayorista" | "especial";
+export type ViewKey = "inicio" | "pedidos" | "productos" | "clientes" | "configuracion";
 
-export type CustomerStatus = "activo" | "pausado" | "moroso";
+export type RequestSource = "text" | "transcribed_audio" | "manual";
+
+export type MatchStatus = "recognized" | "possible" | "review" | "not_found";
+
+export type OrderStatus =
+  | "nuevo"
+  | "para_revisar"
+  | "confirmado"
+  | "impreso"
+  | "en_preparacion"
+  | "preparado"
+  | "cancelado";
+
+export type SaleUnit = "unidad" | "paquete" | "caja" | "bulto" | "kilo";
+
+export type Product = {
+  id: string;
+  code: string;
+  name: string;
+  brand: string;
+  presentation: string;
+  category: string;
+  saleUnit: SaleUnit;
+  price: number;
+  demoStock: number;
+  minimumStock: number;
+  aliases: string[];
+  active: boolean;
+  demoDescription?: boolean;
+};
 
 export type Customer = {
   id: string;
@@ -9,116 +38,64 @@ export type Customer = {
   phone: string;
   address: string;
   city: string;
-  zone: string;
-  customerType: string;
-  priceList: PriceList;
-  creditLimit: number;
-  currentDebt: number;
-  status: CustomerStatus;
+  saleCondition: string;
   notes: string;
-};
-
-export type Product = {
-  id: string;
-  sku: string;
-  name: string;
-  category: string;
-  unit: string;
-  costPrice: number;
-  stock: number;
-  minStock: number;
-  prices: Record<PriceList, number>;
   active: boolean;
 };
 
-export type InquiryStatus =
-  | "nueva"
-  | "respondida"
-  | "cotizada"
-  | "seguimiento"
-  | "convertida"
-  | "perdida";
-
-export type InquiryChannel = "WhatsApp" | "Instagram" | "Telefono" | "Web" | "Referido";
-
-export type Inquiry = {
+export type IncomingRequest = {
   id: string;
-  customerId?: string;
-  prospectName: string;
-  channel: InquiryChannel;
-  text: string;
-  productHints: string[];
-  status: InquiryStatus;
-  owner: string;
-  nextAction: string;
-  followUpDate: string;
+  customerId: string;
+  source: RequestSource;
+  originalText: string;
   createdAt: string;
-  lostReason?: string;
-  convertedOrderId?: string;
+  status: "nuevo" | "interpretado" | "convertido";
+  detectedNotes: string[];
 };
-
-export type OrderStatus =
-  | "borrador"
-  | "confirmado"
-  | "preparacion"
-  | "preparado"
-  | "reparto"
-  | "entregado"
-  | "entregado_sin_cobrar"
-  | "pagado"
-  | "cancelado";
 
 export type OrderLine = {
-  productId: string;
-  quantity: number;
-  unitPrice: number;
-};
-
-export type PaymentMethod = "Efectivo" | "Transferencia" | "Mercado Pago" | "Cheque";
-
-export type Payment = {
   id: string;
-  amount: number;
-  method: PaymentMethod;
-  date: string;
-  reference?: string;
+  productId: string | null;
+  originalText: string;
+  packages: number;
+  quantity: number;
+  unit: SaleUnit;
+  unitPrice: number;
+  discount: number;
+  matchStatus: MatchStatus;
+  matchConfidenceDemo: number;
 };
 
 export type Order = {
   id: string;
   number: string;
   customerId: string;
-  inquiryId?: string;
+  sourceRequestId: string | null;
+  source: RequestSource;
   status: OrderStatus;
-  lines: OrderLine[];
-  discount: number;
   createdAt: string;
-  dueDate: string;
-  deliveryZone: string;
-  owner: string;
+  updatedAt: string;
+  lines: OrderLine[];
   notes: string;
-  paidAmount: number;
-  payments?: Payment[];
+  preparationNotes: string;
+  discount: number;
+  shipping: number;
+  printedAt: string | null;
 };
 
 export type DemoState = {
-  customers: Customer[];
   products: Product[];
-  inquiries: Inquiry[];
+  customers: Customer[];
+  requests: IncomingRequest[];
   orders: Order[];
+  lastDemoSyncAt: string | null;
 };
 
-export type ViewKey =
-  | "inicio"
-  | "pedidos"
-  | "clientes"
-  | "productos"
-  | "cobrar"
-  | "consultas";
-
-export type NewOrderDraft = {
+export type OrderDraft = {
   customerId: string;
-  inquiryId?: string;
+  source: RequestSource;
+  originalText: string;
+  requestId: string | null;
   lines: OrderLine[];
   notes: string;
 };

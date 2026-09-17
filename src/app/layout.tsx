@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"], display: "swap" });
+
 export const metadata: Metadata = {
-  title: "Node3 Distribución — Panel de pedidos y cobranzas",
-  description:
-    "Sistema operativo para distribuidoras: pedidos, clientes, precios, cobranzas y WhatsApp.",
+  title: "Disnode — El Bayo Distribuciones",
+  description: "Prototipo de pedidos operativos para El Bayo Distribuciones.",
 };
 
 export default function RootLayout({
@@ -13,20 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>{children}</body>
+    <html lang="es-AR">
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
