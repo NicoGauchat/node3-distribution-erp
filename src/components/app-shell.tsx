@@ -109,7 +109,7 @@ export function ErpApp() {
     window.setTimeout(() => {
       const lines = interpretMessage(draft.originalText, state.products).map((line) => {
         const normalized = normalizeText(line.originalText);
-        if (normalized.includes("oreo")) return { ...line, matchStatus: "review" as const, matchConfidenceDemo: 0.55 };
+        if (normalized.includes("oreo") || normalized.includes("audio")) return { ...line, matchStatus: "review" as const, matchConfidenceDemo: 0.55 };
         if (normalized.includes("chips de chocolate")) return { ...line, matchStatus: "possible" as const, matchConfidenceDemo: 0.7 };
         return line;
       });
